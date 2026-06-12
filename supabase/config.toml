@@ -1,0 +1,54 @@
+# ============================================================================
+# Flicknest — Local Supabase Configuration
+# ============================================================================
+# Generated for local development. Run `supabase start` to boot the stack.
+# Docs: https://supabase.com/docs/reference/cli/config
+
+project_id = "flicknest"
+
+[api]
+enabled = true
+port = 54321
+host = "0.0.0.0"
+max_rows = 1000
+schemas = ["public", "storage", "graphql_public"]
+
+[db]
+enabled = true
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+# Password for the local postgres instance
+# Change this to a secure password in production
+password = "postgres"
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000/**"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.external]
+# Configure OAuth providers here when needed
+# Docs: https://supabase.com/docs/guides/auth/social-login
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[edge_runtime]
+enabled = false
+
+[analytics]
+enabled = false
+
+# ============================================================================
+# Database connection strings (for reference)
+# ============================================================================
+# Direct Postgres:      postgresql://postgres:postgres@localhost:54322/postgres
+# Connection pooler:    postgresql://postgres:postgres@localhost:54322/postgres
+# Studio (dashboard):   http://localhost:54323
+# API (REST/GraphQL):   http://localhost:54321
+# Inbucket (email):     http://localhost:54324
