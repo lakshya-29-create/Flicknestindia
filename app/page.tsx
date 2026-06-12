@@ -18,42 +18,42 @@ const FALLBACK_MOVIES: MovieRow[] = [
     id: "1", title: "Midnight in Paradise", genre: "Drama, Thriller",
     description: "A retired detective is pulled back into the underbelly of a neon-lit metropolis.",
     what_it_means: "A story about how we can never truly escape our past — the neon-lit city reflects the duality of human nature.",
-    submitted_by: "Elena Vasquez", poster_url: "", trailer_url: "",
+    submitted_by: "Elena Vasquez", poster_url: "/movie-thumbnails/midnight-in-paradise.png", trailer_url: "",
     release_year: 2024, upvotes: 89, is_featured: true, created_at: "2024-01-15T00:00:00Z",
   },
   {
     id: "2", title: "Velvet Thunder", genre: "Action, Heist",
     description: "An elite squad of international thieves plots the most audacious heist in history.",
     what_it_means: "Beyond the thrill of the heist, this film explores the chemistry of trust between people who have every reason to betray each other.",
-    submitted_by: "Marcus Chen", poster_url: "", trailer_url: "",
+    submitted_by: "Marcus Chen", poster_url: "/movie-thumbnails/velvet-thunder.png", trailer_url: "",
     release_year: 2024, upvotes: 76, is_featured: true, created_at: "2024-03-20T00:00:00Z",
   },
   {
     id: "3", title: "Echoes of Tomorrow", genre: "Sci-Fi, Mystery",
     description: "When a quantum physicist discovers she can receive messages from her future self.",
     what_it_means: "This film asks whether knowing your future robs you of the freedom to choose your own path.",
-    submitted_by: "Sarah Kim", poster_url: "", trailer_url: "",
+    submitted_by: "Sarah Kim", poster_url: "/movie-thumbnails/echoes-of-tomorrow.png", trailer_url: "",
     release_year: 2023, upvotes: 64, is_featured: true, created_at: "2023-11-10T00:00:00Z",
   },
   {
     id: "4", title: "The Parallax Effect", genre: "Sci-Fi",
     description: "A quantum physicist discovers that every choice she makes spawns a parallel universe.",
     what_it_means: "If infinite versions of you exist, are any of your choices truly meaningful?",
-    submitted_by: "Alice Chen", poster_url: "", trailer_url: "",
+    submitted_by: "Alice Chen", poster_url: "/movie-thumbnails/the-parallax-effect.png", trailer_url: "",
     release_year: 2024, upvotes: 42, is_featured: true, created_at: "2024-06-01T00:00:00Z",
   },
   {
     id: "5", title: "Embers of Empire", genre: "Drama",
     description: "In the crumbling final days of a dynasty, a young scribe must decide between truth and loyalty.",
     what_it_means: "Power is temporary but stories endure — the most dangerous act in any regime is bearing witness.",
-    submitted_by: "Marcus Webb", poster_url: "", trailer_url: "",
+    submitted_by: "Marcus Webb", poster_url: "/movie-thumbnails/embers-of-empire.png", trailer_url: "",
     release_year: 2023, upvotes: 37, is_featured: true, created_at: "2023-08-15T00:00:00Z",
   },
   {
     id: "6", title: "Where the Lotus Blooms", genre: "Romance",
     description: "Two strangers meet at a meditation retreat in rural Japan.",
     what_it_means: "Not about finding the right person, but about being the right version of yourself when they arrive.",
-    submitted_by: "Yuki Tanaka", poster_url: "", trailer_url: "",
+    submitted_by: "Yuki Tanaka", poster_url: "/movie-thumbnails/where-the-lotus-blooms.png", trailer_url: "",
     release_year: 2025, upvotes: 53, is_featured: true, created_at: "2025-01-10T00:00:00Z",
   },
 ];
@@ -114,6 +114,8 @@ function FilmGrainOverlay() {
 // ============================================================================
 
 function FeaturedSpotlightCard({ movie, index }: { movie: MovieRow; index: number }) {
+  const [imgError, setImgError] = useState(false);
+  const showImage = !!movie.poster_url && !imgError;
   return (
     <motion.div
       initial={{ opacity: 0, x: 40 }}
@@ -133,12 +135,14 @@ function FeaturedSpotlightCard({ movie, index }: { movie: MovieRow; index: numbe
       {/* Poster area */}
       <div className="relative aspect-[16/10] overflow-hidden">
         <div className="absolute inset-0 bg-cinema-dark animate-pulse" />
-        {movie.poster_url ? (
+        {showImage ? (
           <img
             src={movie.poster_url}
             alt={movie.title}
             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
             loading="lazy"
+            decoding="async"
+            onError={() => setImgError(true)}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-burgundy/20 via-cinema-dark to-gold/10">
@@ -221,6 +225,8 @@ function FeaturedSpotlightCard({ movie, index }: { movie: MovieRow; index: numbe
 // ============================================================================
 
 function AllFilmsCard({ movie }: { movie: MovieRow }) {
+  const [imgError, setImgError] = useState(false);
+  const showImage = !!movie.poster_url && !imgError;
   return (
     <motion.div
       variants={cardReveal}
@@ -237,12 +243,14 @@ function AllFilmsCard({ movie }: { movie: MovieRow }) {
       {/* Poster area */}
       <div className="relative aspect-[16/10] overflow-hidden">
         <div className="absolute inset-0 bg-cinema-dark animate-pulse" />
-        {movie.poster_url ? (
+        {showImage ? (
           <img
             src={movie.poster_url}
             alt={movie.title}
             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
             loading="lazy"
+            decoding="async"
+            onError={() => setImgError(true)}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-burgundy/20 via-cinema-dark to-gold/10">

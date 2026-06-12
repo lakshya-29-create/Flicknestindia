@@ -151,6 +151,9 @@ export default function MoviePage() {
   const [burstActive, setBurstActive] = useState(false);
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  const [heroImgError, setHeroImgError] = useState(false);
+  const [posterImgError, setPosterImgError] = useState(false);
+  const [relatedImgErrors, setRelatedImgErrors] = useState<Set<string>>(new Set());
 
   // ─── Scroll Progress ─────────────────────────────────────────────────────
   const mainRef = useRef<HTMLDivElement>(null);
@@ -355,13 +358,14 @@ export default function MoviePage() {
       {/* HERO — Editorial Blurred Poster Section */}
       {/* ================================================================ */}
       <section className="relative h-[50vh] md:h-[70vh] overflow-hidden">
-        {movie.poster_url ? (
+        {movie.poster_url && !heroImgError ? (
           <>
             <img
               src={movie.poster_url}
               alt=""
               aria-hidden="true"
               className="absolute inset-0 w-full h-full object-cover blur-2xl scale-110"
+              onError={() => setHeroImgError(true)}
             />
             <div className="absolute inset-0 bg-cinema-black/50" />
             <div className="absolute inset-0 bg-gradient-to-t from-cinema-black via-cinema-black/40 to-cinema-black/10" />
@@ -609,7 +613,7 @@ export default function MoviePage() {
             ) : null}
 
             {/* Poster */}
-            {movie.poster_url && (
+            {movie.poster_url && !posterImgError && (
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -621,6 +625,8 @@ export default function MoviePage() {
                     src={movie.poster_url}
                     alt={`${movie.title} poster`}
                     className="w-full object-cover"
+                    decoding="async"
+                    onError={() => setPosterImgError(true)}
                   />
                 </div>
               </motion.div>
@@ -694,11 +700,14 @@ export default function MoviePage() {
                     {/* Poster */}
                     <div className="relative aspect-[16/10] bg-gradient-to-br from-burgundy/20 via-cinema-dark to-gold/10 flex items-center justify-center overflow-hidden">
                       <div className="absolute inset-0 bg-cinema-dark" />
-                      {related.poster_url ? (
+                      {related.poster_url && !relatedImgErrors.has(related.id) ? (
                         <img
                           src={related.poster_url}
                           alt={related.title}
                           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                          loading="lazy"
+                          decoding="async"
+                          onError={() => setRelatedImgErrors(prev => new Set(prev).add(related.id))}
                         />
                       ) : (
                         <span className="font-display text-7xl text-white/10">{related.title.charAt(0)}</span>

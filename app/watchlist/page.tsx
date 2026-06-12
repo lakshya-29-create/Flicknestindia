@@ -66,6 +66,8 @@ function WatchlistCard({
   onRemove: (id: string) => void;
 }) {
   const [removing, setRemoving] = useState(false);
+  const [imgError, setImgError] = useState(false);
+  const showImage = !!movie.poster_url && !imgError;
 
   const handleRemove = useCallback(
     async (e: React.MouseEvent) => {
@@ -94,12 +96,14 @@ function WatchlistCard({
         {/* Poster area */}
         <div className="relative aspect-[16/10] overflow-hidden">
           <div className="absolute inset-0 bg-cinema-dark animate-pulse" />
-          {movie.poster_url ? (
+          {showImage ? (
             <img
               src={movie.poster_url}
               alt={movie.title}
               className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
               loading="lazy"
+              decoding="async"
+              onError={() => setImgError(true)}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-burgundy/20 via-cinema-dark to-gold/10">

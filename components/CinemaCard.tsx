@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useState } from "react";
 import { type CinemaCardProps } from "@/types";
 
 const cardVariants = {
@@ -21,6 +22,8 @@ export default function CinemaCard({
 }: CinemaCardProps) {
   const isLandscape = variant === "landscape";
   const isCompact = variant === "compact";
+  const [imgError, setImgError] = useState(false);
+  const showImage = !!movie.poster_url && !imgError;
 
   return (
     <motion.div
@@ -59,13 +62,15 @@ export default function CinemaCard({
         `}
       >
         <div className="absolute inset-0 bg-cinema-dark animate-pulse" />
-        {movie.poster_url ? (
+        {showImage ? (
           <img
             src={movie.poster_url}
             alt={movie.title}
             className="w-full h-full object-cover transition-transform duration-700 
               group-hover:scale-110"
             loading="lazy"
+            decoding="async"
+            onError={() => setImgError(true)}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-burgundy/20 to-gold/10">

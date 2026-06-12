@@ -17,6 +17,8 @@ export default function DiscoverCard({
   isUpvoting = false,
 }: DiscoverCardProps) {
   const [showInsight, setShowInsight] = useState(false);
+  const [imgError, setImgError] = useState(false);
+  const showImage = !!movie.poster_url && !imgError;
 
   return (
     <motion.div
@@ -47,13 +49,15 @@ export default function DiscoverCard({
         {/* Poster section */}
         <div className="relative aspect-[16/9] overflow-hidden">
           <div className="absolute inset-0 bg-cinema-dark animate-pulse" />
-          {movie.poster_url ? (
+          {showImage ? (
             <img
               src={movie.poster_url}
               alt={movie.title}
               className="w-full h-full object-cover transition-transform duration-700 
                 group-hover:scale-110"
               loading="lazy"
+              decoding="async"
+              onError={() => setImgError(true)}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center 
