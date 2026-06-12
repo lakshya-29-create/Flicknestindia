@@ -7,9 +7,10 @@ import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion"
 import GlowBadge from "@/components/GlowBadge";
 import GradientButton from "@/components/GradientButton";
 import SpotlightHover from "@/components/SpotlightHover";
-import { getMovieById, getMovies, addToWatchlist, removeFromWatchlist, isInWatchlist } from "@/lib/api";
+import { getMovieById, getMovies, addToWatchlist, removeFromWatchlist, isInWatchlist, getMovieReviews, getUserReview, createReview, updateReview, deleteReview, getMovieRating } from "@/lib/api";
 import { getUserId } from "@/lib/user-id";
 import type { MovieRow } from "@/lib/supabase";
+import type { ReviewWithProfile } from "@/lib/api";
 
 // ============================================================================
 // YouTube ID extraction helper
@@ -113,6 +114,271 @@ function InsightCard({ whatItMeans, title }: { whatItMeans: string; title: strin
 }
 
 // ============================================================================
+// Review Star Rating — Interactive 1–10 scale
+// ============================================================================
+
+function ReviewStarRating({ value, onChange, size = "md", readOnly = false }: {
+  value: number;
+  onChange?: (v: number) => void;
+  size?: "sm" | "md" | "lg";
+  readOnly?: boolean;
+}) {
+  const sizeMap = { sm: "text-lg", md: "text-2xl", lg: "text-3xl" };
+  const [hovered, setHovered] = useState(0);
+
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((star) => {
+        const filled = star <= (readOnly ? value : hovered || value);
+        return (
+          <button
+            key={star}
+            type="button"
+            disabled={readOnly}
+            onClick={() => onChange?.(star)}
+            onMouseEnter={() => !readOnly && setHovered(star)}
+            onMouseLeave={() => !readOnly && setHovered(0)}
+            className={`${sizeMap[size]} transition-all duration-150 ${
+              readOnly ? "cursor-default" : "cursor-pointer hover:scale-110"
+            } ${filled ? "text-gold" : "text-white/15 hover:text-gold/40"}`}
+            title={`${star}/10`}
+            aria-label={`Rate ${star} out of 10`}
+          >
+            {filled ? "★" : "☆"}
+          </button>
+        );
+      })}
+      {!readOnly && value > 0 && (
+        <span className="ml-2 font-body text-xs text-white/40">{value}/10</span>
+      )}
+      {readOnly && (
+        <span className="ml-2 font-body text-sm text-white/50">{value}/10</span>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// Review Card — Single user review display
+// ============================================================================
+
+function ReviewCard({ review, isOwn, onEdit, onDelete }: {
+  review: ReviewWithProfile;
+  isOwn: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const formattedDate = new Date(review.created_at).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className="p-5 rounded-xl bg-cinema-card/60 border border-white/[0.06]"
+    >
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="flex items-center gap-3 min-w-0">
+          {/* Avatar placeholder */}
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-burgundy/40 to-gold/20 flex items-center justify-center flex-shrink-0">
+            <span className="font-body text-xs font-bold text-white/70">
+              {(review.profile?.username || "Anonymous").charAt(0).toUpperCase()}
+            </span>
+          </div>
+          <div className="min-w-0">
+            <p className="font-body text-sm font-bold text-white/70 truncate">
+              {review.profile?.username || "Anonymous"}
+            </p>
+            <p className="font-body text-[11px] text-white/30">{formattedDate}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {isOwn && (
+            <div className="flex gap-1">
+              <button
+                onClick={onEdit}
+                className="px-2 py-1 rounded-lg text-[10px] font-body font-bold
+                  bg-white/5 border border-white/10 text-white/40
+                  hover:text-gold hover:border-gold/20 hover:bg-gold/5
+                  transition-all duration-200 uppercase tracking-wider"
+              >
+                Edit
+              </button>
+              <button
+                onClick={onDelete}
+                className="px-2 py-1 rounded-lg text-[10px] font-body font-bold
+                  bg-white/5 border border-white/10 text-white/40
+                  hover:text-ember hover:border-ember/20 hover:bg-ember/5
+                  transition-all duration-200 uppercase tracking-wider"
+              >
+                Del
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Rating stars */}
+      <div className="mb-2.5">
+        <ReviewStarRating value={review.rating} size="sm" readOnly />
+      </div>
+
+      {/* Content */}
+      {review.content && (
+        <p className="font-body text-sm text-white/50 leading-relaxed">
+          {review.content}
+        </p>
+      )}
+    </motion.div>
+  );
+}
+
+// ============================================================================
+// Section Divider — decorative gold gradient line with diamond
+// ============================================================================
+
+function SectionDivider() {
+  return (
+    <div className="max-w-7xl mx-auto px-4 md:px-8 pb-8">
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full h-[1px] bg-gradient-to-r from-transparent via-gold/10 to-transparent" />
+        </div>
+        <div className="relative flex justify-center">
+          <div className="w-2 h-2 rotate-45 bg-gold/20 border border-gold/10" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// Back to Top Button — floating, appears on scroll
+// ============================================================================
+
+function BackToTop({ visible, onClick }: { visible: boolean; onClick: () => void }) {
+  return (
+    <AnimatePresence>
+      {visible && (
+        <motion.button
+          onClick={onClick}
+          initial={{ opacity: 0, scale: 0.5, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.5, y: 20 }}
+          transition={{ duration: 0.3, ease: "easeOut" }}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          className="fixed bottom-6 right-6 z-[150] w-11 h-11 rounded-xl
+            bg-cinema-card/90 backdrop-blur-xl border border-white/10
+            flex items-center justify-center
+            text-white/40 hover:text-gold hover:border-gold/30
+            shadow-card hover:shadow-glow
+            transition-colors duration-300"
+          title="Back to top"
+          aria-label="Scroll to top"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+          </svg>
+        </motion.button>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ============================================================================
+// Floating Action Bar — compact mini actions that follow on scroll
+// ============================================================================
+
+function FloatingActionBar({ visible, upvoteCount, isUpvoting, inWatchlist, togglingWatchlist, onUpvote, onWatchlistToggle, onShare }: {
+  visible: boolean;
+  upvoteCount: number | null;
+  isUpvoting: boolean;
+  inWatchlist: boolean;
+  togglingWatchlist: boolean;
+  onUpvote: () => void;
+  onWatchlistToggle: () => void;
+  onShare: () => void;
+}) {
+  return (
+    <AnimatePresence>
+      {visible && (
+        <motion.div
+          initial={{ opacity: 0, y: 20, x: "-50%" }}
+          animate={{ opacity: 1, y: 0, x: "-50%" }}
+          exit={{ opacity: 0, y: 20, x: "-50%" }}
+          transition={{ duration: 0.3, ease: "easeOut" }}
+          className="fixed bottom-6 left-1/2 z-[150] pointer-events-auto"
+        >
+          <div className="flex items-center gap-1.5 px-2.5 py-2 rounded-2xl
+            bg-cinema-card/90 backdrop-blur-xl border border-white/10
+            shadow-card">
+            {/* Upvote */}
+            <motion.button
+              onClick={onUpvote}
+              disabled={isUpvoting}
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.92 }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl
+                bg-gold/10 border border-gold/20 hover:bg-gold/15
+                transition-colors duration-200"
+              title="Upvote this film"
+            >
+              <span className="text-gold text-sm">🎞️</span>
+              <span className="font-display text-base text-gold">{upvoteCount}</span>
+            </motion.button>
+
+            {/* Divider */}
+            <div className="w-[1px] h-5 bg-white/10" />
+
+            {/* Watchlist */}
+            <motion.button
+              onClick={onWatchlistToggle}
+              disabled={togglingWatchlist}
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.92 }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl
+                transition-all duration-200
+                ${inWatchlist
+                  ? "bg-burgundy/15 border border-burgundy/30"
+                  : "bg-white/[0.04] border border-white/10 hover:bg-white/10"
+                }`}
+              title={inWatchlist ? "Remove from watchlist" : "Save to watchlist"}
+            >
+              <span className={`text-sm ${inWatchlist ? "text-burgundy-light" : "text-white/40"}`}>
+                {inWatchlist ? "★" : "☆"}
+              </span>
+            </motion.button>
+
+            {/* Divider */}
+            <div className="w-[1px] h-5 bg-white/10" />
+
+            {/* Share */}
+            <motion.button
+              onClick={onShare}
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.92 }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl
+                bg-white/[0.04] border border-white/10
+                hover:text-gold hover:border-gold/20 hover:bg-gold/5
+                transition-all duration-200"
+              title="Share this film"
+              aria-label="Share this film"
+            >
+              <span className="text-sm text-white/40 hover:text-gold">⎘</span>
+            </motion.button>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ============================================================================
 // Gold Burst Animation — for upvote click
 // ============================================================================
 
@@ -154,6 +420,11 @@ export default function MoviePage() {
   const [heroImgError, setHeroImgError] = useState(false);
   const [posterImgError, setPosterImgError] = useState(false);
   const [relatedImgErrors, setRelatedImgErrors] = useState<Set<string>>(new Set());
+  const [heroImgLoaded, setHeroImgLoaded] = useState(false);
+  const [posterImgLoaded, setPosterImgLoaded] = useState(false);
+  const [relatedImgLoaded, setRelatedImgLoaded] = useState<Set<string>>(new Set());
+  const [showBackToTop, setShowBackToTop] = useState(false);
+  const [showFloatingBar, setShowFloatingBar] = useState(false);
 
   // ─── Scroll Progress ─────────────────────────────────────────────────────
   const mainRef = useRef<HTMLDivElement>(null);
@@ -162,6 +433,21 @@ export default function MoviePage() {
     offset: ["start start", "end end"],
   });
   const progressWidth = useTransform(scrollYProgress, [0, 1], ["0%", "100%"]);
+
+  // ─── Scroll-based visibility for Back to Top & Floating Bar ────────────
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollY = window.scrollY;
+      setShowBackToTop(scrollY > window.innerHeight * 0.6);
+      setShowFloatingBar(scrollY > window.innerHeight * 0.85);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const scrollToTop = useCallback(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
 
   // ─── Toast helper ────────────────────────────────────────────────────────
   const showToast = useCallback((msg: string) => {
@@ -229,6 +515,124 @@ export default function MoviePage() {
     return () => { cancelled = true; };
   }, [id]);
 
+  // ─── Reviews State ────────────────────────────────────────────────────────
+  const [reviews, setReviews] = useState<ReviewWithProfile[]>([]);
+  const [userReview, setUserReview] = useState<{ id: string; rating: number; content: string } | null>(null);
+  const [avgRating, setAvgRating] = useState<{ average: number; count: number }>({ average: 0, count: 0 });
+  const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [reviewFormOpen, setReviewFormOpen] = useState(false);
+  const [editingReview, setEditingReview] = useState(false);
+  const [formRating, setFormRating] = useState(0);
+  const [formContent, setFormContent] = useState("");
+  const [formSubmitting, setFormSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [deletingReview, setDeletingReview] = useState(false);
+
+  // ─── Fetch reviews & rating ──────────────────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadReviews() {
+      setReviewsLoading(true);
+      try {
+        const userId = getUserId();
+        const [reviewsData, ratingData, userReviewData] = await Promise.all([
+          getMovieReviews(id),
+          getMovieRating(id),
+          getUserReview(userId, id),
+        ]);
+        if (cancelled) return;
+        setReviews(reviewsData);
+        setAvgRating(ratingData);
+        if (userReviewData) {
+          setUserReview({ id: userReviewData.id, rating: userReviewData.rating, content: userReviewData.content });
+        }
+      } catch {
+        // Silent fail — reviews are supplementary content
+      } finally {
+        if (!cancelled) setReviewsLoading(false);
+      }
+    }
+
+    if (id) loadReviews();
+    return () => { cancelled = true; };
+  }, [id]);
+
+  // ─── Review form handlers ────────────────────────────────────────────────
+  const resetForm = useCallback(() => {
+    setFormRating(0);
+    setFormContent("");
+    setFormError(null);
+    setEditingReview(false);
+    setReviewFormOpen(false);
+  }, []);
+
+  const openEditForm = useCallback(() => {
+    if (userReview) {
+      setFormRating(userReview.rating);
+      setFormContent(userReview.content);
+      setEditingReview(true);
+      setReviewFormOpen(true);
+    }
+  }, [userReview]);
+
+  const handleSubmitReview = useCallback(async () => {
+    if (formRating < 1 || formRating > 10) {
+      setFormError("Please select a rating between 1 and 10.");
+      return;
+    }
+    setFormSubmitting(true);
+    setFormError(null);
+
+    try {
+      const userId = getUserId();
+      if (editingReview && userReview) {
+        await updateReview(userReview.id, userId, { rating: formRating, content: formContent });
+        setUserReview({ id: userReview.id, rating: formRating, content: formContent });
+      } else {
+        const created = await createReview(userId, id, { rating: formRating, content: formContent });
+        setUserReview({ id: created.id, rating: created.rating, content: created.content });
+      }
+      // Refresh reviews list and rating
+      const [reviewsData, ratingData] = await Promise.all([
+        getMovieReviews(id),
+        getMovieRating(id),
+      ]);
+      setReviews(reviewsData);
+      setAvgRating(ratingData);
+      resetForm();
+      showToast(editingReview ? "✦ Review updated" : "✦ Review submitted");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to submit review";
+      setFormError(msg);
+    } finally {
+      setFormSubmitting(false);
+    }
+  }, [formRating, formContent, editingReview, userReview, id, resetForm, showToast]);
+
+  const handleDeleteReview = useCallback(async () => {
+    if (!userReview || deletingReview) return;
+    setDeletingReview(true);
+    try {
+      const userId = getUserId();
+      await deleteReview(userReview.id, userId);
+      setUserReview(null);
+      // Refresh reviews list and rating
+      const [reviewsData, ratingData] = await Promise.all([
+        getMovieReviews(id),
+        getMovieRating(id),
+      ]);
+      setReviews(reviewsData);
+      setAvgRating(ratingData);
+      showToast("✦ Review deleted");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to delete review";
+      showToast(msg);
+    } finally {
+      setDeletingReview(false);
+    }
+  }, [userReview, deletingReview, id, showToast]);
+
   // ─── Upvote handler — POST /api/upvote ──────────────────────────────────
   const handleUpvote = useCallback(async () => {
     if (isUpvoting || upvoteCount === null) return;
@@ -281,17 +685,36 @@ export default function MoviePage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-cinema-black">
-        <div className="relative h-[50vh] md:h-[70vh] bg-cinema-dark animate-pulse">
+        <div className="relative h-[50vh] md:h-[70vh] overflow-hidden">
+          {/* Shimmer base */}
+          <div className="absolute inset-0 bg-cinema-dark" />
+          <div className="absolute inset-0" style={{
+            background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.03) 50%, transparent 100%)",
+            backgroundSize: "200% 100%",
+            animation: "shimmer 2.5s ease-in-out infinite",
+          }} />
           <div className="absolute bottom-0 left-0 right-0 p-8 md:p-16 max-w-5xl mx-auto">
-            <div className="h-4 w-24 bg-cinema-card rounded mb-4" />
-            <div className="h-16 w-3/4 bg-cinema-card rounded mb-3" />
-            <div className="h-4 w-1/3 bg-cinema-card rounded mb-6" />
-            <div className="h-3 w-2/3 bg-cinema-card rounded" />
+            <div className="h-4 w-24 bg-cinema-card/50 rounded mb-4 relative overflow-hidden">
+              <div className="absolute inset-0" style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent)", backgroundSize: "200% 100%", animation: "shimmer 2s ease-in-out infinite" }} />
+            </div>
+            <div className="h-16 w-3/4 bg-cinema-card/50 rounded mb-3 relative overflow-hidden">
+              <div className="absolute inset-0" style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent)", backgroundSize: "200% 100%", animation: "shimmer 2s ease-in-out infinite 0.2s" }} />
+            </div>
+            <div className="h-4 w-1/3 bg-cinema-card/50 rounded mb-6 relative overflow-hidden">
+              <div className="absolute inset-0" style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent)", backgroundSize: "200% 100%", animation: "shimmer 2s ease-in-out infinite 0.4s" }} />
+            </div>
+            <div className="h-3 w-2/3 bg-cinema-card/50 rounded relative overflow-hidden">
+              <div className="absolute inset-0" style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent)", backgroundSize: "200% 100%", animation: "shimmer 2s ease-in-out infinite 0.6s" }} />
+            </div>
           </div>
         </div>
         <div className="max-w-5xl mx-auto px-4 py-12 space-y-6">
-          <div className="h-32 bg-cinema-card rounded-2xl animate-pulse" />
-          <div className="h-24 bg-cinema-card rounded-2xl animate-pulse" />
+          <div className="h-32 bg-cinema-card/50 rounded-2xl relative overflow-hidden">
+            <div className="absolute inset-0" style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent)", backgroundSize: "200% 100%", animation: "shimmer 2.5s ease-in-out infinite 0.3s" }} />
+          </div>
+          <div className="h-24 bg-cinema-card/50 rounded-2xl relative overflow-hidden">
+            <div className="absolute inset-0" style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent)", backgroundSize: "200% 100%", animation: "shimmer 2.5s ease-in-out infinite 0.6s" }} />
+          </div>
         </div>
       </main>
     );
@@ -344,6 +767,38 @@ export default function MoviePage() {
       {/* Toast */}
       <Toast message={toastMessage} visible={toastVisible} />
 
+      {/* Back to Top */}
+      <BackToTop visible={showBackToTop} onClick={scrollToTop} />
+
+      {/* Floating action bar (sticky mini actions on scroll) */}
+      <FloatingActionBar
+        visible={showFloatingBar}
+        upvoteCount={upvoteCount}
+        isUpvoting={isUpvoting}
+        inWatchlist={inWatchlist}
+        togglingWatchlist={togglingWatchlist}
+        onUpvote={handleUpvote}
+        onWatchlistToggle={async () => {
+          if (togglingWatchlist) return;
+          setTogglingWatchlist(true);
+          const userId = getUserId();
+          try {
+            if (inWatchlist) {
+              await removeFromWatchlist(userId, id);
+              setInWatchlist(false);
+            } else {
+              await addToWatchlist(userId, id);
+              setInWatchlist(true);
+            }
+          } catch {
+            setInWatchlist(inWatchlist);
+          } finally {
+            setTogglingWatchlist(false);
+          }
+        }}
+        onShare={handleShare}
+      />
+
       {/* ================================================================ */}
       {/* STICKY SCROLL-PROGRESS BAR — Burgundy to Gold */}
       {/* ================================================================ */}
@@ -360,11 +815,16 @@ export default function MoviePage() {
       <section className="relative h-[50vh] md:h-[70vh] overflow-hidden">
         {movie.poster_url && !heroImgError ? (
           <>
-            <img
+            <div className="absolute inset-0 bg-cinema-dark" />
+            <motion.img
               src={movie.poster_url}
               alt=""
               aria-hidden="true"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: heroImgLoaded ? 1 : 0 }}
+              transition={{ duration: 0.8 }}
               className="absolute inset-0 w-full h-full object-cover blur-2xl scale-110"
+              onLoad={() => setHeroImgLoaded(true)}
               onError={() => setHeroImgError(true)}
             />
             <div className="absolute inset-0 bg-cinema-black/50" />
@@ -537,6 +997,7 @@ export default function MoviePage() {
         </motion.div>
 
         {/* ── Two-column layout ──────────────────────────────────────── */}
+        <SpotlightHover spotlightOpacity={0.06}>
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-12 pb-16 md:pb-24">
           {/* Main content (3/5) */}
           <div className="lg:col-span-3 space-y-8">
@@ -620,12 +1081,17 @@ export default function MoviePage() {
                 transition={{ duration: 0.6, delay: 0.55 }}
               >
                 <h3 className="font-body text-[10px] text-white/30 uppercase tracking-[0.25em] mb-3">Poster</h3>
-                <div className="rounded-2xl overflow-hidden bg-cinema-card border border-white/[0.06]">
-                  <img
+                <div className="rounded-2xl overflow-hidden bg-cinema-card border border-white/[0.06] relative">
+                  <div className="absolute inset-0 bg-cinema-dark" />
+                  <motion.img
                     src={movie.poster_url}
                     alt={`${movie.title} poster`}
-                    className="w-full object-cover"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: posterImgLoaded ? 1 : 0 }}
+                    transition={{ duration: 0.6 }}
+                    className="w-full object-cover relative z-10"
                     decoding="async"
+                    onLoad={() => setPosterImgLoaded(true)}
                     onError={() => setPosterImgError(true)}
                   />
                 </div>
@@ -665,11 +1131,265 @@ export default function MoviePage() {
             </motion.div>
           </div>
         </div>
+        </SpotlightHover>
       </div>
+
+      {/* ================================================================ */}
+      {/* REVIEWS & RATINGS */}
+      {/* ================================================================ */}
+      <SectionDivider />
+      <SpotlightHover>
+      <section className="max-w-7xl mx-auto px-4 md:px-8 pb-16 md:pb-24">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.6 }}
+          className="mb-10"
+        >
+          {/* Decorative divider */}
+          <div className="flex items-center gap-4 mb-6">
+            <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent via-gold/20 to-transparent" />
+            <div className="w-1.5 h-1.5 rounded-full bg-gold/30 rotate-45" />
+            <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent via-gold/20 to-transparent" />
+          </div>
+          <div className="flex items-end justify-between flex-wrap gap-4 mb-2">
+            <div>
+              <GlowBadge variant="gold" size="sm" className="mb-4">★ Community Rating</GlowBadge>
+              <h2 className="font-display text-4xl md:text-6xl text-white tracking-tight">
+                Reviews & <span className="text-gradient">Ratings</span>
+              </h2>
+            </div>
+          </div>
+
+          {/* Rating summary bar */}
+          {!reviewsLoading && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="glass-panel p-5 md:p-6 mt-6 flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-8"
+            >
+              {/* Average rating big display */}
+              <div className="flex items-center gap-4">
+                <div className="text-center">
+                  <span className="font-display text-5xl md:text-6xl text-gold leading-none">
+                    {avgRating.count > 0 ? avgRating.average.toFixed(1) : "—"}
+                  </span>
+                  <span className="block font-body text-[10px] text-white/30 uppercase tracking-wider mt-1">
+                    {avgRating.count} rating{avgRating.count !== 1 ? "s" : ""}
+                  </span>
+                </div>
+                <div className="hidden md:block w-[1px] h-12 bg-white/10" />
+                <div className="hidden md:block">
+                  <ReviewStarRating value={Math.round(avgRating.average)} size="md" readOnly />
+                  <p className="font-body text-xs text-white/30 mt-1">
+                    {avgRating.count > 0
+                      ? `Average of ${avgRating.count} review${avgRating.count !== 1 ? "s" : ""}`
+                      : "No reviews yet — be the first!"}
+                  </p>
+                </div>
+              </div>
+
+              {/* MD+ inline rating */}
+              <div className="md:hidden">
+                <ReviewStarRating value={Math.round(avgRating.average)} size="sm" readOnly />
+                <p className="font-body text-xs text-white/30 mt-1">
+                  {avgRating.count > 0
+                    ? `Average of ${avgRating.count} review${avgRating.count !== 1 ? "s" : ""}`
+                    : "No reviews yet — be the first!"}
+                </p>
+              </div>
+
+              {/* Action buttons */}
+              <div className="md:ml-auto flex items-center gap-3">
+                {userReview ? (
+                  <div className="flex items-center gap-2">
+                    <span className="font-body text-xs text-white/30">Your review:</span>
+                    <ReviewStarRating value={userReview.rating} size="sm" readOnly />
+                    <button
+                      onClick={openEditForm}
+                      className="text-[10px] font-body font-bold uppercase tracking-wider
+                        text-gold/60 hover:text-gold transition-colors"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                ) : (
+                  !reviewFormOpen && (
+                    <motion.button
+                      onClick={() => setReviewFormOpen(true)}
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.97 }}
+                      className="px-5 py-2.5 rounded-xl text-xs font-body font-bold
+                        bg-cinema-gradient text-white transition-all duration-300"
+                    >
+                      ✦ Write a Review
+                    </motion.button>
+                  )
+                )}
+              </div>
+            </motion.div>
+          )}
+        </motion.div>
+
+        {/* Review Form — inline expandable */}
+        <AnimatePresence>
+          {reviewFormOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className="overflow-hidden mb-8"
+            >
+              <div className="glass-panel p-5 md:p-6">
+                <h3 className="font-body text-[10px] text-white/30 uppercase tracking-[0.25em] mb-4">
+                  {editingReview ? "Edit Your Review" : "Write Your Review"}
+                </h3>
+
+                {/* Star rating selector */}
+                <div className="mb-5">
+                  <label className="block font-body text-xs text-white/40 mb-2">
+                    Your Rating
+                  </label>
+                  <ReviewStarRating value={formRating} onChange={setFormRating} size="lg" />
+                </div>
+
+                {/* Content textarea */}
+                <div className="mb-4">
+                  <label className="block font-body text-xs text-white/40 mb-2">
+                    Your Thoughts <span className="text-white/20">(optional)</span>
+                  </label>
+                  <textarea
+                    value={formContent}
+                    onChange={(e) => setFormContent(e.target.value)}
+                    placeholder="What did this film mean to you? How did it make you feel?"
+                    rows={4}
+                    maxLength={1000}
+                    className="w-full px-4 py-3 rounded-xl bg-cinema-black/60 border border-white/10
+                      text-white text-sm font-body placeholder:text-white/20
+                      focus:outline-none focus:border-gold/40 focus:ring-2 focus:ring-gold/10
+                      transition-all duration-300 resize-none"
+                  />
+                  <p className="font-body text-[10px] text-white/20 mt-1.5 text-right">
+                    {formContent.length}/1000
+                  </p>
+                </div>
+
+                {/* Error */}
+                {formError && (
+                  <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="font-body text-xs text-ember/80 mb-4"
+                  >
+                    {formError}
+                  </motion.p>
+                )}
+
+                {/* Actions */}
+                <div className="flex items-center gap-3">
+                  <motion.button
+                    onClick={handleSubmitReview}
+                    disabled={formSubmitting}
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    className="px-6 py-2.5 rounded-xl text-xs font-body font-bold
+                      bg-cinema-gradient text-white transition-all duration-300
+                      disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {formSubmitting ? (
+                      <span className="flex items-center gap-2">
+                        <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Submitting...
+                      </span>
+                    ) : editingReview ? (
+                      "✦ Update Review"
+                    ) : (
+                      "✦ Submit Review"
+                    )}
+                  </motion.button>
+                  <button
+                    onClick={resetForm}
+                    className="px-4 py-2.5 rounded-xl text-xs font-body font-bold
+                      bg-white/5 border border-white/10 text-white/50
+                      hover:text-white/70 hover:bg-white/10 transition-all duration-300"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Reviews list */}
+        {reviewsLoading ? (
+          <div className="space-y-3">
+            {[...Array(3)].map((_, i) => (
+              <div
+                key={i}
+                className="p-5 rounded-xl bg-cinema-card/60 border border-white/[0.06] animate-pulse"
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-8 h-8 rounded-full bg-cinema-dark" />
+                  <div className="space-y-1.5">
+                    <div className="h-3 w-24 bg-cinema-dark rounded" />
+                    <div className="h-2 w-16 bg-cinema-dark rounded" />
+                  </div>
+                </div>
+                <div className="h-3 w-32 bg-cinema-dark rounded mb-2" />
+                <div className="h-2 w-full bg-cinema-dark rounded" />
+                <div className="h-2 w-3/4 bg-cinema-dark rounded mt-1" />
+              </div>
+            ))}
+          </div>
+        ) : reviews.length > 0 ? (
+          <div className="space-y-3">
+            {reviews.map((review) => (
+              <ReviewCard
+                key={review.id}
+                review={review}
+                isOwn={userReview?.id === review.id}
+                onEdit={openEditForm}
+                onDelete={handleDeleteReview}
+              />
+            ))}
+          </div>
+        ) : (
+          !reviewFormOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-center py-12 border border-dashed border-white/10 rounded-2xl"
+            >
+              <div className="text-4xl mb-3 opacity-30">💬</div>
+              <h3 className="font-display text-2xl text-white/40 mb-2">
+                No reviews yet
+              </h3>
+              <p className="font-body text-sm text-white/30 max-w-md mx-auto mb-5">
+                Be the first to share your thoughts on this film.
+              </p>
+              <motion.button
+                onClick={() => setReviewFormOpen(true)}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                className="px-5 py-2.5 rounded-xl text-xs font-body font-bold
+                  bg-cinema-gradient text-white transition-all duration-300"
+              >
+                ✦ Write a Review
+              </motion.button>
+            </motion.div>
+          )
+        )}
+      </section>
+      </SpotlightHover>
 
       {/* ================================================================ */}
       {/* RELATED FILMS — 3 Cards */}
       {/* ================================================================ */}
+      <SectionDivider />
       {relatedMovies.length > 0 && (
         <SpotlightHover>
           <section className="px-4 md:px-8 pb-24 md:pb-32 max-w-7xl mx-auto">
@@ -700,13 +1420,16 @@ export default function MoviePage() {
                     {/* Poster */}
                     <div className="relative aspect-[4/3] bg-gradient-to-br from-burgundy/20 via-cinema-dark to-gold/10 flex items-center justify-center overflow-hidden">
                       <div className="absolute inset-0 bg-cinema-dark" />
-                      {related.poster_url && !relatedImgErrors.has(related.id) ? (
-                        <img
+                      {related.poster_url && !relatedImgErrors.has(related.id) ? (                          <motion.img
                           src={related.poster_url}
                           alt={related.title}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: relatedImgLoaded.has(related.id) ? 1 : 0 }}
+                          transition={{ duration: 0.5 }}
                           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                           loading="lazy"
                           decoding="async"
+                          onLoad={() => setRelatedImgLoaded(prev => new Set(prev).add(related.id))}
                           onError={() => setRelatedImgErrors(prev => new Set(prev).add(related.id))}
                         />
                       ) : (
@@ -780,6 +1503,7 @@ export default function MoviePage() {
       {/* ================================================================ */}
       {/* FOOTER */}
       {/* ================================================================ */}
+      <SectionDivider />
       <footer className="border-t border-white/5">
         <div className="max-w-7xl mx-auto px-4 md:px-8 py-12">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
