@@ -27,6 +27,37 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: "title", label: "Title A-Z" },
 ];
 
+const QUICK_PRESETS: { label: string; icon: string; sortBy: SortOption; genre?: string }[] = [
+  { label: "Trending", icon: "🔥", sortBy: "upvotes" },
+  { label: "New", icon: "✨", sortBy: "created_at" },
+  { label: "Classics", icon: "📽️", sortBy: "release_year" },
+];
+
+// ============================================================================
+// Active Filter Tag Component
+// ============================================================================
+
+function FilterTag({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <motion.span
+      initial={{ opacity: 0, scale: 0.85 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.85 }}
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full
+        bg-white/5 border border-white/10 text-white/60 text-xs font-body"
+    >
+      {label}
+      <button
+        onClick={onRemove}
+        className="w-3.5 h-3.5 rounded-full flex items-center justify-center
+          text-white/30 hover:text-white hover:bg-white/10 transition-all"
+      >
+        ✕
+      </button>
+    </motion.span>
+  );
+}
+
 // ============================================================================
 // Page Content (inner component that uses useSearchParams)
 // ============================================================================
@@ -297,32 +328,71 @@ function DiscoverPageContent() {
             transition={{ duration: 0.5, delay: 0.3 }}
             className="glass-panel p-4 md:p-6 space-y-4"
           >
+            {/* Quick Filter Presets */}
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {QUICK_PRESETS.map((preset) => (
+                <motion.button
+                  key={preset.label}
+                  onClick={() => handleSortChange(preset.sortBy)}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  className={`whitespace-nowrap px-4 py-2 rounded-xl text-xs font-body font-bold
+                    transition-all duration-300 border flex items-center gap-1.5
+                    ${
+                      sortBy === preset.sortBy && !selectedGenre
+                        ? "bg-gold/10 border-gold/30 text-gold shadow-glow"
+                        : "bg-white/5 border-white/10 text-white/50 hover:text-white/70 hover:bg-white/10"
+                    }`}
+                >
+                  <span className="text-sm">{preset.icon}</span>
+                  {preset.label}
+                </motion.button>
+              ))}
+            </div>
+
             {/* Search + Sort row */}
             <div className="flex flex-col md:flex-row gap-4">
-              {/* Search */}
-              <div className="relative flex-1">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/20 text-sm">
+              {/* Search — cinematic expandable bar */}
+              <div className="relative flex-1 group/search">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/20 text-sm
+                  group-focus-within/search:text-gold/50 transition-colors duration-300">
                   🔍
                 </span>
                 <input
                   type="text"
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
-                  placeholder="Search films..."
-                  className="w-full pl-10 pr-4 py-2.5 bg-cinema-black/60 border border-white/10 
-                    rounded-xl text-white text-sm font-body placeholder:text-white/20
-                    focus:outline-none focus:border-gold/40 focus:ring-1 focus:ring-gold/20
-                    transition-all duration-300"
+                  placeholder="Search films by title..."
+                  className="w-full pl-10 pr-10 py-3 bg-cinema-black/60 
+                    border border-white/10 rounded-xl
+                    text-white text-sm font-body placeholder:text-white/20
+                    focus:outline-none focus:border-gold/40 focus:ring-2 focus:ring-gold/10
+                    focus:bg-cinema-black/80 focus:shadow-[0_0_30px_-5px_rgba(255,215,0,0.15)]
+                    transition-all duration-300
+                    md:py-3 md:text-base"
                 />
+                {/* Clear search button */}
+                {searchInput && (
+                  <motion.button
+                    initial={{ opacity: 0, scale: 0.5 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    onClick={() => { setSearchInput(''); setSearch(''); }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full
+                      flex items-center justify-center text-white/30 hover:text-white
+                      hover:bg-white/10 transition-all"
+                  >
+                    ✕
+                  </motion.button>
+                )}
               </div>
 
-              {/* Sort */}
+              {/* Sort buttons */}
               <div className="flex gap-2 overflow-x-auto pb-1">
                 {SORT_OPTIONS.map((option) => (
                   <button
                     key={option.value}
                     onClick={() => handleSortChange(option.value)}
-                    className={`whitespace-nowrap px-4 py-2 rounded-xl text-xs font-body font-bold 
+                    className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-xs font-body font-bold 
                       transition-all duration-300 border
                       ${
                         sortBy === option.value
@@ -341,7 +411,7 @@ function DiscoverPageContent() {
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => handleGenreClick(null)}
-                  className={`px-4 py-2 rounded-xl text-xs font-body font-bold 
+                  className={`px-4 py-2.5 rounded-xl text-xs font-body font-bold 
                     transition-all duration-300 border
                     ${
                       !selectedGenre
@@ -349,13 +419,13 @@ function DiscoverPageContent() {
                         : "bg-white/5 border-white/10 text-white/50 hover:text-white/70 hover:bg-white/10"
                     }`}
                 >
-                  All
+                  All Genres
                 </button>
                 {genres.map((genre) => (
                   <button
                     key={genre.name}
                     onClick={() => handleGenreClick(genre.name)}
-                    className={`px-4 py-2 rounded-xl text-xs font-body font-bold 
+                    className={`px-4 py-2.5 rounded-xl text-xs font-body font-bold 
                       transition-all duration-300 border flex items-center gap-1.5
                       ${
                         selectedGenre === genre.name
@@ -370,20 +440,53 @@ function DiscoverPageContent() {
               </div>
             </div>
 
-            {/* Active filters bar */}
-            {hasActiveFilters && (
-              <div className="flex items-center justify-between pt-2 border-t border-white/5">
-                <p className="text-xs text-white/30 font-body">
-                  {totalCount} film{totalCount !== 1 ? "s" : ""} found
-                </p>
-                <button
-                  onClick={handleClearFilters}
-                  className="text-xs text-gold/60 hover:text-gold font-body font-bold transition-colors"
+            {/* Active filter tags */}
+            <AnimatePresence mode="wait">
+              {hasActiveFilters && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="flex items-center flex-wrap gap-2 pt-3 border-t border-white/5"
                 >
-                  Clear all filters
-                </button>
-              </div>
-            )}
+                  <span className="text-[10px] text-white/20 font-body uppercase tracking-wider mr-1">
+                    Active:
+                  </span>
+
+                  {search && (
+                    <FilterTag
+                      label={`Search: “${search}”`}
+                      onRemove={() => { setSearchInput(''); setSearch(''); }}
+                    />
+                  )}
+
+                  {selectedGenre && (
+                    <FilterTag
+                      label={`Genre: ${selectedGenre}`}
+                      onRemove={() => setSelectedGenre(null)}
+                    />
+                  )}
+
+                  {sortBy !== 'upvotes' && (
+                    <FilterTag
+                      label={`Sort: ${SORT_OPTIONS.find(o => o.value === sortBy)?.label || sortBy}`}
+                      onRemove={() => setSortBy('upvotes')}
+                    />
+                  )}
+
+                  <span className="text-xs text-white/30 font-body ml-auto">
+                    {totalCount} film{totalCount !== 1 ? 's' : ''} found
+                  </span>
+
+                  <button
+                    onClick={handleClearFilters}
+                    className="text-xs text-gold/60 hover:text-gold font-body font-bold transition-colors"
+                  >
+                    Clear all
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         </section>
       </SpotlightHover>

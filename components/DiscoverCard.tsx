@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { MovieRow } from "@/lib/supabase";
 import GlowBadge from "./GlowBadge";
+import WatchlistButton from "./WatchlistButton";
 
 interface DiscoverCardProps {
   movie: MovieRow;
@@ -17,6 +18,8 @@ export default function DiscoverCard({
   isUpvoting = false,
 }: DiscoverCardProps) {
   const [showInsight, setShowInsight] = useState(false);
+  const [imgError, setImgError] = useState(false);
+  const showImage = !!movie.poster_url && !imgError;
 
   return (
     <motion.div
@@ -45,15 +48,17 @@ export default function DiscoverCard({
 
       <div className="relative z-0">
         {/* Poster section */}
-        <div className="relative aspect-[16/9] overflow-hidden">
+        <div className="relative aspect-[4/3] overflow-hidden">
           <div className="absolute inset-0 bg-cinema-dark animate-pulse" />
-          {movie.poster_url ? (
+          {showImage ? (
             <img
               src={movie.poster_url}
               alt={movie.title}
               className="w-full h-full object-cover transition-transform duration-700 
                 group-hover:scale-110"
               loading="lazy"
+              decoding="async"
+              onError={() => setImgError(true)}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center 
@@ -63,6 +68,31 @@ export default function DiscoverCard({
               </span>
             </div>
           )}
+
+          {/* Hover preview overlay — play trailer */}
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center
+            opacity-0 group-hover:opacity-100 transition-all duration-300
+            bg-gradient-to-t from-cinema-black/70 via-cinema-black/40 to-cinema-black/70
+            backdrop-blur-[2px]">
+            {movie.trailer_url && (
+              <a
+                href={movie.trailer_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-2.5 px-5 py-2.5 rounded-full
+                  bg-gold/15 backdrop-blur-md border border-gold/30
+                  text-gold text-sm font-body font-bold
+                  hover:bg-gold/25 hover:border-gold/50 hover:scale-105
+                  transition-all duration-300
+                  translate-y-2 group-hover:translate-y-0"
+              >
+                <span className="flex items-center justify-center w-8 h-8 rounded-full
+                  bg-gold/25 text-gold text-base">▶</span>
+                Trailer
+              </a>
+            )}
+          </div>
 
           {/* Gradient fade to bottom */}
           <div className="absolute inset-0 bg-gradient-to-t from-cinema-card via-cinema-card/40 to-transparent" />
@@ -89,6 +119,11 @@ export default function DiscoverCard({
               backdrop-blur-sm">
               {movie.genre}
             </span>
+          </div>
+
+          {/* Watchlist heart badge */}
+          <div className="absolute bottom-3 right-3 z-30">
+            <WatchlistButton movieId={movie.id} />
           </div>
         </div>
 

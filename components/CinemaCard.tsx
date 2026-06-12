@@ -1,7 +1,9 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useState } from "react";
 import { type CinemaCardProps } from "@/types";
+import WatchlistButton from "./WatchlistButton";
 
 const cardVariants = {
   hidden: { opacity: 0, y: 30 },
@@ -21,6 +23,8 @@ export default function CinemaCard({
 }: CinemaCardProps) {
   const isLandscape = variant === "landscape";
   const isCompact = variant === "compact";
+  const [imgError, setImgError] = useState(false);
+  const showImage = !!movie.poster_url && !imgError;
 
   return (
     <motion.div
@@ -55,17 +59,19 @@ export default function CinemaCard({
         className={`
           relative overflow-hidden
           ${isLandscape ? "w-2/5 flex-shrink-0" : "w-full"}
-          ${isCompact ? "h-64" : "aspect-[2/3]"}
+          ${isCompact ? "h-72" : "aspect-[3/4]"}
         `}
       >
         <div className="absolute inset-0 bg-cinema-dark animate-pulse" />
-        {movie.poster_url ? (
+        {showImage ? (
           <img
             src={movie.poster_url}
             alt={movie.title}
             className="w-full h-full object-cover transition-transform duration-700 
               group-hover:scale-110"
             loading="lazy"
+            decoding="async"
+            onError={() => setImgError(true)}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-burgundy/20 to-gold/10">
@@ -74,6 +80,31 @@ export default function CinemaCard({
             </span>
           </div>
         )}
+
+        {/* Hover preview overlay — play trailer */}
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center
+          opacity-0 group-hover:opacity-100 transition-all duration-300
+          bg-gradient-to-t from-cinema-black/70 via-cinema-black/40 to-cinema-black/70
+          backdrop-blur-[2px]">
+          {movie.trailer_url && (
+            <a
+              href={movie.trailer_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-2.5 px-5 py-2.5 rounded-full
+                bg-gold/15 backdrop-blur-md border border-gold/30
+                text-gold text-sm font-body font-bold
+                hover:bg-gold/25 hover:border-gold/50 hover:scale-105
+                transition-all duration-300
+                translate-y-2 group-hover:translate-y-0"
+            >
+              <span className="flex items-center justify-center w-8 h-8 rounded-full
+                bg-gold/25 text-gold text-base">▶</span>
+              Trailer
+            </a>
+          )}
+        </div>
 
         {/* Upvote badge */}
         <div
@@ -97,6 +128,11 @@ export default function CinemaCard({
             </span>
           </div>
         )}
+
+        {/* Watchlist heart badge */}
+        <div className="absolute bottom-3 right-3 z-30">
+          <WatchlistButton movieId={movie.id} />
+        </div>
       </div>
 
       {/* Content */}
