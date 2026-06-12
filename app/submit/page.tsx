@@ -103,6 +103,7 @@ function FocusGlowInput({
   maxLength,
   large = false,
   watchValue = "",
+  required = false,
 }: {
   label: string;
   register: any;
@@ -112,6 +113,7 @@ function FocusGlowInput({
   maxLength?: number;
   large?: boolean;
   watchValue?: string;
+  required?: boolean;
 }) {
   return (
     <div className="relative group">

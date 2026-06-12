@@ -17,7 +17,7 @@ import type { MovieRow } from "@/lib/supabase";
 
 function getYouTubeId(url: string): string | null {
   return url.match(
-    /(?:youtube\\.com\\/(?:watch\\?v=|embed\\/|v\\/)|youtu\\.be\\/)([a-zA-Z0-9_-]{11})/
+    /(?:youtube\.com\/(?:watch\?v=|embed\/|v\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/
   )?.[1] || null;
 }
 

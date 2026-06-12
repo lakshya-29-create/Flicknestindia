@@ -29,8 +29,8 @@ export function useMousePosition(
 
   useEffect(() => {
     const target = ref?.current || window;
-    target.addEventListener("mousemove", handleMouseMove);
-    return () => target.removeEventListener("mousemove", handleMouseMove);
+    target.addEventListener("mousemove", handleMouseMove as EventListener);
+    return () => target.removeEventListener("mousemove", handleMouseMove as EventListener);
   }, [ref, handleMouseMove]);
 
   return position;

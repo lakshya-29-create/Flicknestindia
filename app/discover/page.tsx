@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import DiscoverCard from "@/components/DiscoverCard";
@@ -28,10 +28,10 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
 ];
 
 // ============================================================================
-// Page Component
+// Page Content (inner component that uses useSearchParams)
 // ============================================================================
 
-export default function DiscoverPage() {
+function DiscoverPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -239,14 +239,12 @@ export default function DiscoverPage() {
         ))}
       </div>
     );
-  }
-
-  // ============================================================================
-  // Render
-  // ============================================================================
+  }// ============================================================================
+// Render
+// ============================================================================
 
   return (
-    <main className="min-h-screen bg-cinema-black">
+    <>
       {/* ================================================================ */}
       {/* Hero Section */}
       {/* ================================================================ */}
@@ -502,6 +500,25 @@ export default function DiscoverPage() {
           </p>
         </div>
       </footer>
-    </main>
+    </>
+  );
+}
+
+// ============================================================================
+// Discover Page — wrapped in Suspense for useSearchParams
+// ============================================================================
+
+export default function DiscoverPage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen bg-cinema-black flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin mx-auto mb-4" />
+          <p className="font-body text-sm text-white/30">Loading discover...</p>
+        </div>
+      </main>
+    }>
+      <DiscoverPageContent />
+    </Suspense>
   );
 }
